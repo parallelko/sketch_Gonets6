@@ -235,7 +235,7 @@ void responseSend(Ethernetclient sclient) {
     if (ch = webFile.read())>0) { //if file ended 
     sclient.write(buff,rsize); //Send last part
     rsize = 0; //reset pointer
-    return;
+    brake;
     }
     if (rsize >= MAX_BUFFER_SIZE) { //if buffer is full
      sclient.write(buff, rsize);
@@ -266,13 +266,7 @@ void responseSend(Ethernetclient sclient) {
          brake;
          }
     }
-    webFile.close();       
-          
-       
-           
-           
-           
-   /* Old Version
+  /* Old Version
             if (webFile) {
               while(webFile.available()) {
                 rsize = webFile.read(buff, MAX_BUFFER_SIZE);//Считывание буфера
@@ -280,7 +274,8 @@ void responseSend(Ethernetclient sclient) {
               }
               webFile.close();
             } // if (webFile)
-  old version */ 
+  old version */
+  webFile.close();   
 }
 String makeHttpReq() {
     String s = "";

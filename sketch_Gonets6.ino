@@ -13,9 +13,10 @@
 EthernetServer server(SERVER_PORT);
 
 //my defines
-#define in_body 0
-#define in_template 1
+#define IN_BODY 0
+#define IN_TEMPLATE 1
 #define MAX_NUM_ATTEMPTS 3
+#define MAX_TEMPLATE_LENGTH 10
 
 // HTTP request
 #define REQ_BUF_SIZE 128
@@ -224,6 +225,63 @@ boolean openIndexFile() {
    
 } // parseRequest ( )
 
+void responseSend(Ethernetclient sclient) {
+  char ch;
+  char buffTemplate[MAX_TEMPLATE_LENGTH];
+  rsize = 0;
+  uint8_t read_state = IN_BODY; 
+  while (webFile) {
+    if (!webFile.available()) breake;
+    if (ch = webFile.read())>0) { //if file ended 
+    sclient.write(buff,rsize); //Send last part
+    rsize = 0; //reset pointer
+    return;
+    }
+    if (rsize >= MAX_BUFFER_SIZE) { //if buffer is full
+     sclient.write(buff, rsize);
+     rsize = 0; //Send buffer and reset pointer
+    }    
+    switch (read_state) {
+       case IN_BODY {
+         if (ch == '%'){
+         sclient.write(buff,rsize); //Send buffer before symbol
+         rsize = 0; //Clear buffer length
+         read_state = IN_TEMPLATE;
+         brake;
+         }
+         buff[rsize++] = ch; //Add new element to main buffer
+         brake;
+       }
+       case IN_TEMPLATE {
+         if (ch == '%') {
+           sclient.write(sendVar(buffTemplate)); //Send string returned after replace by Variable
+           read_state = IN_BODY;
+           brake;
+         if (rsize > MAX_TEMPLATE_LENGTH); //do not recieve close "%"
+           sclient.write('%'); //Send missing %
+           sclient.write(buffTemplate);
+           read_state = IN_BODY;
+           brake;
+         buffTemplate[rsize++] = ch; //Add new element to TemplateBuffer
+         brake;
+         }
+    }
+    webFile.close();       
+          
+       
+           
+           
+           
+   /* Old Version
+            if (webFile) {
+              while(webFile.available()) {
+                rsize = webFile.read(buff, MAX_BUFFER_SIZE);//Считывание буфера
+                sclient.write(buff, rsize);
+              }
+              webFile.close();
+            } // if (webFile)
+  old version */ 
+}
 String makeHttpReq() {
     String s = "";
     for (int i = 0; i < reqIndex; i++) {
@@ -282,27 +340,8 @@ char lastChar;
   myFile.close();
 }
 //Parcer and set config
-void sendParam(const char Attr, EthernetClient sclient) {
-  //char sBuffer[20];
-  if(Attr == 'A'){
-    sclient.write(ipString(my_IP).c_str());
-  }
-  else if (Attr == 'B')
-  {
-    sclient.write(ipString(send_IP).c_str());
-  }
-  else if (Attr == 'C')
-  {
+char *sendVar(const char *Template) {
   
-  }
-  else if (Attr == 'D')
-  {
-  
-  }
-  else {
-    sclient.write('%');
-    sclient.write(Attr);
-  }
 }
 void setConf(const String &strBuffer){
   MatchState ms;
@@ -422,41 +461,8 @@ void serverWorks2(EthernetClient sclient) {
         if (c == '\n' && currentLineIsBlank) {
           //if (authMode == AUTH_OFF || (authMode == AUTH_ON && request.lastIndexOf(AUTH_HASH) > -1)) {     Authorization
             parseRequest(sclient); 
-            //body of response
-/* Old Version
-            if (webFile) {
-              while(webFile.available()) {
-                rsize = webFile.read(buff, MAX_BUFFER_SIZE);//Считывание буфера
-                sclient.write(buff, rsize);
-              }
-              webFile.close();
-            } // if (webFile)
-//старая версия отправки данных */ 
-//New version              
-            if (webFile && webFile.available()) {
-              char ch;
-              rsize = 0;
-              while((ch = webFile.read())>0) {
-                if (rsize <= MAX_BUFFER_SIZE)
-                {
-                  if (ch == '%') {
-                    sclient.write(buff,rsize); //Send buffer before symbol
-                    rsize = 0; //Clear buffer length
-                    sendParam(webFile.read(),sclient);
-                  }
-                  else {
-                    buff[rsize++] = ch;
-                  }
-                }
-                else {
-                  sclient.write(buff, rsize);
-                  rsize = 0;
-                }
-              }
-              webFile.close();
-            } // if (webFile)
-//End new version */          
-            // Reset buffer index and all buffer elements to 0
+            responseSend(sclient);
+           // Reset buffer index and all buffer elements to 0
             reqIndex = 0;
             StrClear(HTTP_req, REQ_BUF_SIZE);
             request = "";

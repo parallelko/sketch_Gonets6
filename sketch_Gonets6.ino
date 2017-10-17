@@ -26,8 +26,6 @@ EthernetServer server(SERVER_PORT);
 #define REQ_BUF_SIZE 128
 char HTTP_req[REQ_BUF_SIZE] = {0}; // null terminated string
 int reqIndex = 0;
-#define abracadabra 999
-#defene ne abracadaba 3223
 
 // String request
 #define MAX_LEN_STRING  128
@@ -320,7 +318,7 @@ byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED}; //Указываем MAC ад
 byte my_IP[] = {192,168,1,127};
 //Задание переменных для передачи в Гонец
 byte send_IP[] = {192,168,1,55};
-char fromTerm[5]= "1125";
+char fromTerm[5]= "1025";
 char toTerm[5]= "7";
 
 File myFile;

@@ -353,7 +353,9 @@ char *sendVar(const char *Template) {
       return fromTerm;
     }
     case "B_RATE" {
-      return BRate_serial1ж
+      char br_buff[6];
+      sprintf(br_buff,"%d", BRate_serial1);
+      return br_buff;
     }
   }
 }

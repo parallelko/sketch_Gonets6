@@ -17,6 +17,10 @@ EthernetServer server(SERVER_PORT);
 #define IN_TEMPLATE 1
 #define MAX_NUM_ATTEMPTS 3
 #define MAX_TEMPLATE_LENGTH 10
+#define GONETS_PORT 80
+#define GONETS_SEND_SATT_GSM 1
+#define GONETS_SEND_SATT 0
+#define GONETS_SEND_GSM 2
 
 // HTTP request
 #define REQ_BUF_SIZE 128
@@ -37,7 +41,7 @@ File webFile;
 uint16_t rsize;
 char buff[MAX_BUFFER_SIZE];
 
-uint16_t BRate_serial1 = 9600;
+uint16_t BRate_serial1 = 57600;
 
 /* Authorization
 #define AUTH_OFF 0
@@ -227,47 +231,48 @@ boolean openIndexFile() {
    
 } // parseRequest ( )
 
-void responseSend(Ethernetclient sclient) {
+void responseSend(EthernetClient sclient) {
   char ch;
   char buffTemplate[MAX_TEMPLATE_LENGTH];
   rsize = 0;
   uint8_t read_state = IN_BODY; 
-  while (webFile) {
-    if (!webFile.available()) breake;
-    if (ch = webFile.read())>0) { //if file ended 
-    sclient.write(buff,rsize); //Send last part
-    rsize = 0; //reset pointer
-    brake;
-    }
+  if (webFile) {
+    while (webFile.available()) {
+    ch = webFile.read();  
     if (rsize >= MAX_BUFFER_SIZE) { //if buffer is full
      sclient.write(buff, rsize);
      rsize = 0; //Send buffer and reset pointer
     }    
     switch (read_state) {
-       case IN_BODY {
+       case IN_BODY : {
          if (ch == '%'){
          sclient.write(buff,rsize); //Send buffer before symbol
          rsize = 0; //Clear buffer length
          read_state = IN_TEMPLATE;
-         brake;
+         break;
          }
          buff[rsize++] = ch; //Add new element to main buffer
-         brake;
+         break;
        }
-       case IN_TEMPLATE {
+       case IN_TEMPLATE : {
          if (ch == '%') {
-           sclient.write(sendVar(buffTemplate)); //Send string returned after replace by Variable
+           sclient.write(sendVar(buffTemplate).c_str()); //Send string returned after replace by Variable
            read_state = IN_BODY;
-           brake;
-         if (rsize > MAX_TEMPLATE_LENGTH); //do not recieve close "%"
+           break;
+         }
+         if (rsize > MAX_TEMPLATE_LENGTH) { //do not recieve close "%"
            sclient.write('%'); //Send missing %
            sclient.write(buffTemplate);
+           rsize = 0;
            read_state = IN_BODY;
-           brake;
+           break;
+         }
          buffTemplate[rsize++] = ch; //Add new element to TemplateBuffer
-         brake;
+         break;
          }
     }
+    }
+  } 
   /* Old Version
             if (webFile) {
               while(webFile.available()) {
@@ -277,8 +282,11 @@ void responseSend(Ethernetclient sclient) {
               webFile.close();
             } // if (webFile)
   old version */
-  webFile.close();   
+  sclient.write(buff,rsize); //Send last part
+  rsize = 0; //reset pointer
+  webFile.close();
 }
+
 String makeHttpReq() {
     String s = "";
     for (int i = 0; i < reqIndex; i++) {
@@ -298,9 +306,11 @@ String ipString(byte ip[]) {
   String s = "";
   for (byte i = 0; i < 4; i++) {
     s += ip[i];
-    if (i == 3) {return s;}
-    s += '.';
+    if (i < 3)
+      s += '.';
   }
+  Serial.println(s);
+  return s;
 }
 
 //Всё что касается передачи данных по Ethernet
@@ -308,58 +318,12 @@ byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED}; //Указываем MAC ад
 byte my_IP[] = {192,168,1,127};
 //Задание переменных для передачи в Гонец
 byte send_IP[] = {192,168,1,55};
-char fromTerm[5]= "1030";
+char fromTerm[5]= "1125";
 char toTerm[5]= "7";
 
 File myFile;
-IPAddress ip(my_IP);// ip(192,168,1,155);//Свой IP
+IPAddress ip(my_IP);//Свой IP
 IPAddress GonetsIP(send_IP);//IP устройства назначения
-
-void setup() {
-    mainInit();
-    sdreadconf();
-}
-void sdreadconf(){ //Чтение конфигурации из файла сonfig.ini
-String str;
-char lastChar;
-  myFile = SD.open("conf.ini", FILE_READ);
-  while (myFile.available()) {
-      lastChar = myFile.read();
-      if (lastChar != '\n' && lastChar != '\0'  ){
-        str += lastChar;
-      }
-      else
-      {
-       setConf(str);
-       str = "";
-      }
-  }
-  myFile.close();
-}
-//Parcer and set config
-char *sendVar(const char *Template) {
-  String tocompare = String(Template);
-  Switch (tocompare) {
-    case "MY_IP" {
-      return ipString(my_IP).c_str;
-    }
-    case "SEND_IP" {
-      return ipString(send_IP).c_str;
-    }
-    case "DEST_ID" {
-      return toTerm;
-    }
-    case "SELF_ID" {
-      return fromTerm;
-    }
-    case "B_RATE" {
-      char br_buff[6];
-      sprintf(br_buff,"%d", BRate_serial1);
-      return br_buff;
-    }
-  }
-}
-    
 void setConf(const String &strBuffer){
   MatchState ms;
   ms.Target (strBuffer.c_str());  // what to search
@@ -401,6 +365,48 @@ void setConf(const String &strBuffer){
     IPAddress GonetsIP(new_ip);
   }
 }
+
+void sdreadconf(){ //Чтение конфигурации из файла сonfig.ini
+String str;
+char lastChar;
+  myFile = SD.open("conf.ini", FILE_READ);
+  while (myFile.available()) {
+      lastChar = myFile.read();
+      if (lastChar != '\n' && lastChar != '\0'  ){
+        str += lastChar;
+      }
+      else
+      {
+       setConf(str);
+       str = "";
+      }
+  }
+  myFile.close();
+}
+//Parcer and set config
+String sendVar(const char *Template) {
+  String tocompare = String(Template);
+  if (tocompare == "MY_IP") {
+      return ipString(my_IP);
+    }
+  if (tocompare == "SEND_IP") {
+      return ipString(send_IP);
+    }
+  if (tocompare == "DEST_ID") {
+      return toTerm;
+    }
+  if (tocompare == "SELF_ID") {
+      return fromTerm;
+    }
+  if (tocompare == "B_RATE") {
+      char br_buff[6];
+      sprintf(br_buff, "%d", BRate_serial1);
+      return br_buff;
+    }
+  tocompare = String("Template error");
+  return tocompare;
+}
+    
 void Logthis(const char *LOG){
   File LogFile;
   LogFile = SD.open("Log.txt", FILE_WRITE);
@@ -412,6 +418,7 @@ void Logthis(const char *LOG){
 void mainInit() //Инициализация параметров
 {
   Serial.begin(9600);
+  //Serial.begin(BRate_serial1);
   Serial.setTimeout(200);
   Ethernet.begin(mac, ip);
   if (!SD.begin(4)) {
@@ -421,6 +428,7 @@ void mainInit() //Инициализация параметров
   }
   Serial.println(F("Ready..."));
   Serial1.begin(BRate_serial1);
+  Serial1.setTimeout(200);
 }
 
 /*
@@ -560,16 +568,15 @@ void GonetsHTTPsend(char *msg, char *fromTerminal, char *toTerminal,byte chSv) {
   byte ln = 0;
   byte tryN = 0;
   char sendbuff[256];
-  char sendIP = ipString(send_IP).c_str();
   ln = sprintf(sendbuff,"from=%s&to=%s&urgency=0&chSv=%d&subj=data&msg=%s",fromTerminal,toTerminal,chSv, msg); //Подготовка строки к отправке
    //Задаем 3 попытки для коннекта
   while (tryN<MAX_NUM_ATTEMPTS){
-    if (client.connect(GonetsIP, 4001)) {
+    if (client.connect(GonetsIP, GONETS_PORT)) {
         // HTTP-Reqest:
         Serial.println(F("Connected"));
         client.println(F("POST /sendmsg.htm HTTP/1.1"));
         client.print(F("Host: "));
-        client.println(sendIP);
+        client.println(ipString(send_IP).c_str());
         client.println(F("Connection: keep-alive"));
         client.print(F("Content-Length: "));
         client.println(ln);
@@ -598,9 +605,14 @@ void serialWorks() { //Serial recieving and sending messages
     }
     if (serialReq != ""){
     sendBuff = serialReq.c_str();
-    GonetsHTTPsend(sendBuff,fromTerm,toTerm,1);
+    GonetsHTTPsend(sendBuff,fromTerm,toTerm, GONETS_SEND_SATT_GSM);
     serialReq = "";
     }
+}
+
+void setup() {
+    mainInit();
+    sdreadconf();
 }
 
 void loop() {

@@ -27,6 +27,7 @@ EthernetServer server(SERVER_PORT);
 char HTTP_req[REQ_BUF_SIZE] = {0}; // null terminated string
 int reqIndex = 0;
 #define abracadabra 999
+#defene ne abracadaba 3223
 
 // String request
 #define MAX_LEN_STRING  128

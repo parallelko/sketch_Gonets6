@@ -21,6 +21,10 @@ EthernetServer server(SERVER_PORT);
 #define GONETS_SEND_SATT_GSM 1
 #define GONETS_SEND_SATT 0
 #define GONETS_SEND_GSM 2
+#define NORMAL_STATE 0
+#define SD_INIT_FAIL 1
+
+uint8_t main_state = NORMAL_STATE;
 
 // HTTP request
 #define REQ_BUF_SIZE 128
@@ -159,10 +163,17 @@ boolean openIndexFile() {
  void parseRequest(EthernetClient cl) {
   // index request
   if (StrContains(HTTP_req, "GET / ") || StrContains(HTTP_req, "GET /index.htm")) {
-    if (openIndexFile()) {
+    if (main_state == SD_INIT_FAIL){
+       sendHtmlAnswer(cl);
+       internalHTMLsend(cl);
+    }
+    else if (openIndexFile()) {
       sendHtmlAnswer(cl);
+      sendBodyAnswerHTML(cl);
+      
     } else {
       webFile = SD.open(F("404.htm"));
+      sendBodyAnswer(cl);
     }
   }
   else if (StrContains(HTTP_req, GET)) {
@@ -170,13 +181,16 @@ boolean openIndexFile() {
     if      (StrContains(HTTP_req, ".htm")) {
       if (openWebFile()) {
         sendHtmlAnswer(cl);
+        sendBodyAnswerHTML(cl);
       } else {
         webFile = SD.open(F("404.htm"));
+        sendBodyAnswer(cl);
       }
     }
     else if (StrContains(HTTP_req, ".css"))  {
       if (openWebFile()) {
         sendCssAnswer(cl);
+        sendBodyAnswer(cl);
       }  else {
         sendErrorAnswer("", cl);
       }
@@ -184,6 +198,7 @@ boolean openIndexFile() {
     else if (StrContains(HTTP_req, ".js"))   {
       if (openWebFile()) {
         sendJsAnswer(cl);
+        sendBodyAnswer(cl);
       }   else {
         sendErrorAnswer("", cl);
       }
@@ -191,6 +206,7 @@ boolean openIndexFile() {
     else if (StrContains(HTTP_req, ".pde"))  {
       if (openWebFile()) {
         sendJsAnswer(cl);
+        sendBodyAnswer(cl);
       }   else {
         sendErrorAnswer("", cl);
       }
@@ -198,6 +214,7 @@ boolean openIndexFile() {
     else if (StrContains(HTTP_req, ".png"))  {
       if (openWebFile()) {
         sendPngAnswer(cl);
+        sendBodyAnswer(cl);
       }  else {
         sendErrorAnswer("", cl);
       }
@@ -205,6 +222,7 @@ boolean openIndexFile() {
     else if (StrContains(HTTP_req, ".jpg"))  {
       if (openWebFile()) {
         sendJpgAnswer(cl);
+        sendBodyAnswer(cl);
       }  else {
         sendErrorAnswer("", cl);
       }
@@ -212,6 +230,7 @@ boolean openIndexFile() {
     else if (StrContains(HTTP_req, ".gif"))  {
       if (openWebFile()) {
         sendGifAnswer(cl);
+        sendBodyAnswer(cl);
       }  else {
         sendErrorAnswer("", cl);
       }
@@ -219,26 +238,26 @@ boolean openIndexFile() {
     else if (StrContains(HTTP_req, ".ico"))  {
       if (openWebFile()) {
         sendIcoAnswer(cl);
+        sendBodyAnswer(cl);
       }  else {
         sendErrorAnswer("", cl);
       }
     }
-    // Ajax requests
     else if (StrContains(HTTP_req, "request_settings")) {
       sendXmlAnswer(cl);
+      sendBodyAnswer(cl);
     }// else if (StrContains(HTTP_req, GET))
    }
-   
 } // parseRequest ( )
 
-void responseSend(EthernetClient sclient) {
+void sendBodyAnswerHTML(EthernetClient sclient) { //Response with Templates
   char ch;
   char buffTemplate[MAX_TEMPLATE_LENGTH];
   rsize = 0;
   uint8_t read_state = IN_BODY; 
   if (webFile) {
     while (webFile.available()) {
-    ch = webFile.read();  
+    ch = webFile.read();
     if (rsize >= MAX_BUFFER_SIZE) { //if buffer is full
      sclient.write(buff, rsize);
      rsize = 0; //Send buffer and reset pointer
@@ -270,22 +289,23 @@ void responseSend(EthernetClient sclient) {
          buffTemplate[rsize++] = ch; //Add new element to TemplateBuffer
          break;
          }
-    }
+      }
     }
   } 
-  /* Old Version
-            if (webFile) {
-              while(webFile.available()) {
-                rsize = webFile.read(buff, MAX_BUFFER_SIZE);//Считывание буфера
-                sclient.write(buff, rsize);
-              }
-              webFile.close();
-            } // if (webFile)
-  old version */
   sclient.write(buff,rsize); //Send last part
   rsize = 0; //reset pointer
   webFile.close();
 }
+void sendBodyAnswer(EthernetClient sclient) {  //Simple body response
+ if (webFile) {
+   while(webFile.available()) {
+    rsize = webFile.read(buff, MAX_BUFFER_SIZE);
+    sclient.write(buff, rsize);
+   }
+   webFile.close();
+ } 
+}
+
 
 String makeHttpReq() {
     String s = "";
@@ -423,9 +443,10 @@ void mainInit() //Инициализация параметров
   Ethernet.begin(mac, ip);
   if (!SD.begin(4)) {
     Serial.println("SD initialization failed!");
-    server.begin();
-    delay(200);
+    main_state = SD_INIT_FAIL;
   }
+  server.begin();
+  delay(200);
   Serial.println(F("Ready..."));
   Serial1.begin(BRate_serial1);
   Serial1.setTimeout(200);
@@ -486,7 +507,7 @@ void serverWorks2(EthernetClient sclient) {
         if (c == '\n' && currentLineIsBlank) {
           //if (authMode == AUTH_OFF || (authMode == AUTH_ON && request.lastIndexOf(AUTH_HASH) > -1)) {     Authorization
             parseRequest(sclient); 
-            responseSend(sclient);
+           //responseSend(sclient);
            // Reset buffer index and all buffer elements to 0
             reqIndex = 0;
             StrClear(HTTP_req, REQ_BUF_SIZE);

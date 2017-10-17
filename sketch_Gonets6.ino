@@ -318,7 +318,7 @@ byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED}; //Указываем MAC ад
 byte my_IP[] = {192,168,1,127};
 //Задание переменных для передачи в Гонец
 byte send_IP[] = {192,168,1,55};
-char fromTerm[5]= "1125";
+char fromTerm[5]= "1025";
 char toTerm[5]= "7";
 
 File myFile;

@@ -37,6 +37,8 @@ File webFile;
 uint16_t rsize;
 char buff[MAX_BUFFER_SIZE];
 
+uint16_t BRate_serial1 = 9600;
+
 /* Authorization
 #define AUTH_OFF 0
 #define AUTH_ON  1
@@ -336,8 +338,26 @@ char lastChar;
 }
 //Parcer and set config
 char *sendVar(const char *Template) {
-  
+  String tocompare = String(Template);
+  Switch (tocompare) {
+    case "MY_IP" {
+      return ipString(my_IP).c_str;
+    }
+    case "SEND_IP" {
+      return ipString(send_IP).c_str;
+    }
+    case "DEST_ID" {
+      return toTerm;
+    }
+    case "SELF_ID" {
+      return fromTerm;
+    }
+    case "B_RATE" {
+      return BRate_serial1ж
+    }
+  }
 }
+    
 void setConf(const String &strBuffer){
   MatchState ms;
   ms.Target (strBuffer.c_str());  // what to search
@@ -398,7 +418,7 @@ void mainInit() //Инициализация параметров
     delay(200);
   }
   Serial.println(F("Ready..."));
-  Serial1.begin(9600);
+  Serial1.begin(BRate_serial1);
 }
 
 /*

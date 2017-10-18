@@ -36,14 +36,10 @@ int reqIndex = 0;
 #define MAX_LEN_REQUEST 256 // 512
 String request = "";
 
-// webFile
-File webFile;
-#define MAX_BUFFER_SIZE 256
 #define GET           "GET /"
 #define INDEX_STR     "index"
 #define HTM_EXT       ".HTM"
-uint16_t rsize;
-char buff[MAX_BUFFER_SIZE];
+
 
 uint16_t BRate_serial1 = 57600;
 
@@ -95,33 +91,6 @@ String makeAnswer(String content) {
 void sendHtmlAnswer(EthernetClient cl) {
   cl.println(makeAnswer(F("text/html")));
 }
-void sendCssAnswer (EthernetClient cl) {
-  cl.println(makeAnswer(F("text/css")));
-}
-void sendJsAnswer  (EthernetClient cl) {
-  cl.println(makeAnswer(F("application/javascript")));
-}
-void sendPngAnswer (EthernetClient cl) {
-  cl.println(makeAnswer(F("image/png")));
-}
-void sendJpgAnswer (EthernetClient cl) {
-  cl.println(makeAnswer(F("image/jpeg")));
-}
-void sendGifAnswer (EthernetClient cl) {
-  cl.println(makeAnswer(F("image/gif")));
-}
-void sendXmlAnswer (EthernetClient cl) {
-  cl.println(makeAnswer(F("text/xml")));
-}
-void sendIcoAnswer (EthernetClient cl) {
-  cl.println(makeAnswer(F("image/x-icon")));
-}
-
-//void sendDownAnswer(EthernetClient cl) {cl.println(makeAnswer(F("application/octet-stream")));}
-//void sendPdfAnswer (EthernetClient cl) {cl.println(makeAnswer(F("application/x-pdf")));}
-//void sendZipAnswer (EthernetClient cl) {cl.println(makeAnswer(F("application/x-zip")));}
-//void sendGzAnswer  (EthernetClient cl) {cl.println(makeAnswer(F("application/x-gzip")));}
-//void sendElseAnswer(EthernetClient cl) {cl.println(makeAnswer(F("text/plain")));}
 
 void sendErrorAnswer(char mess[], EthernetClient cl) {
   cl.print(mess);
@@ -129,41 +98,11 @@ void sendErrorAnswer(char mess[], EthernetClient cl) {
   cl.println(F("Connnection: close"));
   cl.println();
 }
-
-String makeTag(String tagBase, String tagCount, String value) {
-  String s = "";
-  s += "<"; s += tagBase; s += tagCount; s += ">";
-  s += value;
-  s += "</"; s += tagBase; s += tagCount; s += ">\n";
-  return s;
-}
-
-boolean openWebFile() {
-  char *fileName;
-  fileName = strtok(HTTP_req, GET);
-  webFile = SD.open(fileName);
-  if (webFile) {
-    return true;
-  }
-  else {
-    return false;
-  }
-}
-
-boolean openIndexFile() {
-  webFile = SD.open("index.htm");
-  if (webFile) {
-    return true;
-  }
-  else {
-    return false;
-  }
-}
  
  void parseRequest(EthernetClient cl) {
   // index request
   if (StrContains(HTTP_req, "GET / ") || StrContains(HTTP_req, "GET /index.htm")) {
-    if (main_state == SD_INIT_FAIL){
+    
        sendHtmlAnswer(cl);
        internalHTMLsend(cl);
     }
@@ -187,125 +126,8 @@ boolean openIndexFile() {
         sendBodyAnswer(cl);
       }
     }
-    else if (StrContains(HTTP_req, ".css"))  {
-      if (openWebFile()) {
-        sendCssAnswer(cl);
-        sendBodyAnswer(cl);
-      }  else {
-        sendErrorAnswer("", cl);
-      }
-    }
-    else if (StrContains(HTTP_req, ".js"))   {
-      if (openWebFile()) {
-        sendJsAnswer(cl);
-        sendBodyAnswer(cl);
-      }   else {
-        sendErrorAnswer("", cl);
-      }
-    }
-    else if (StrContains(HTTP_req, ".pde"))  {
-      if (openWebFile()) {
-        sendJsAnswer(cl);
-        sendBodyAnswer(cl);
-      }   else {
-        sendErrorAnswer("", cl);
-      }
-    }
-    else if (StrContains(HTTP_req, ".png"))  {
-      if (openWebFile()) {
-        sendPngAnswer(cl);
-        sendBodyAnswer(cl);
-      }  else {
-        sendErrorAnswer("", cl);
-      }
-    }
-    else if (StrContains(HTTP_req, ".jpg"))  {
-      if (openWebFile()) {
-        sendJpgAnswer(cl);
-        sendBodyAnswer(cl);
-      }  else {
-        sendErrorAnswer("", cl);
-      }
-    }
-    else if (StrContains(HTTP_req, ".gif"))  {
-      if (openWebFile()) {
-        sendGifAnswer(cl);
-        sendBodyAnswer(cl);
-      }  else {
-        sendErrorAnswer("", cl);
-      }
-    }
-    else if (StrContains(HTTP_req, ".ico"))  {
-      if (openWebFile()) {
-        sendIcoAnswer(cl);
-        sendBodyAnswer(cl);
-      }  else {
-        sendErrorAnswer("", cl);
-      }
-    }
-    else if (StrContains(HTTP_req, "request_settings")) {
-      sendXmlAnswer(cl);
-      sendBodyAnswer(cl);
-    }// else if (StrContains(HTTP_req, GET))
-   }
+  }
 } // parseRequest ( )
-
-void sendBodyAnswerHTML(EthernetClient sclient) { //Response with Templates
-  char ch;
-  char buffTemplate[MAX_TEMPLATE_LENGTH];
-  rsize = 0;
-  uint8_t read_state = IN_BODY; 
-  if (webFile) {
-    while (webFile.available()) {
-    ch = webFile.read();
-    if (rsize >= MAX_BUFFER_SIZE) { //if buffer is full
-     sclient.write(buff, rsize);
-     rsize = 0; //Send buffer and reset pointer
-    }    
-    switch (read_state) {
-       case IN_BODY : {
-         if (ch == '%'){
-         sclient.write(buff,rsize); //Send buffer before symbol
-         rsize = 0; //Clear buffer length
-         read_state = IN_TEMPLATE;
-         break;
-         }
-         buff[rsize++] = ch; //Add new element to main buffer
-         break;
-       }
-       case IN_TEMPLATE : {
-         if (ch == '%') {
-           sclient.write(sendVar(buffTemplate).c_str()); //Send string returned after replace by Variable
-           read_state = IN_BODY;
-           break;
-         }
-         if (rsize > MAX_TEMPLATE_LENGTH) { //do not recieve close "%"
-           sclient.write('%'); //Send missing %
-           sclient.write(buffTemplate);
-           rsize = 0;
-           read_state = IN_BODY;
-           break;
-         }
-         buffTemplate[rsize++] = ch; //Add new element to TemplateBuffer
-         break;
-         }
-      }
-    }
-  } 
-  sclient.write(buff,rsize); //Send last part
-  rsize = 0; //reset pointer
-  webFile.close();
-}
-void sendBodyAnswer(EthernetClient sclient) {  //Simple body response
- if (webFile) {
-   while(webFile.available()) {
-    rsize = webFile.read(buff, MAX_BUFFER_SIZE);
-    sclient.write(buff, rsize);
-   }
-   webFile.close();
- } 
-}
-
 
 String makeHttpReq() {
     String s = "";

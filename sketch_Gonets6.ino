@@ -40,7 +40,6 @@ String request = "";
 #define INDEX_STR     "index"
 #define HTM_EXT       ".HTM"
 
-
 uint16_t BRate_serial1 = 57600;
 
 /* Authorization
@@ -129,19 +128,6 @@ void sendErrorAnswer(char mess[], EthernetClient cl) {
   }
 } // parseRequest ( )
 
-String makeHttpReq() {
-    String s = "";
-    for (int i = 0; i < reqIndex; i++) {
-      if (HTTP_req[i] == '&') {
-        s += ' ';
-      }
-      else {
-        s += HTTP_req[i];
-      }
-    }
-    return makeTag("httpReq", "", s);
-  }
-
 //________________________________________________________________________________________________________________________________________________________________
 
 String ipString(byte ip[]) {
@@ -162,10 +148,9 @@ byte my_IP[] = {192,168,1,127};
 byte send_IP[] = {192,168,1,55};
 char fromTerm[5]= "1025";
 char toTerm[5]= "7";
-
-File myFile;
 IPAddress ip(my_IP);//Свой IP
 IPAddress GonetsIP(send_IP);//IP устройства назначения
+
 void setConf(const String &strBuffer){
   MatchState ms;
   ms.Target (strBuffer.c_str());  // what to search
@@ -208,54 +193,6 @@ void setConf(const String &strBuffer){
   }
 }
 
-void sdreadconf(){ //Чтение конфигурации из файла сonfig.ini
-String str;
-char lastChar;
-  myFile = SD.open("conf.ini", FILE_READ);
-  while (myFile.available()) {
-      lastChar = myFile.read();
-      if (lastChar != '\n' && lastChar != '\0'  ){
-        str += lastChar;
-      }
-      else
-      {
-       setConf(str);
-       str = "";
-      }
-  }
-  myFile.close();
-}
-//Parcer and set config
-String sendVar(const char *Template) {
-  String tocompare = String(Template);
-  if (tocompare == "MY_IP") {
-      return ipString(my_IP);
-    }
-  if (tocompare == "SEND_IP") {
-      return ipString(send_IP);
-    }
-  if (tocompare == "DEST_ID") {
-      return toTerm;
-    }
-  if (tocompare == "SELF_ID") {
-      return fromTerm;
-    }
-  if (tocompare == "B_RATE") {
-      char br_buff[6];
-      sprintf(br_buff, "%d", BRate_serial1);
-      return br_buff;
-    }
-  tocompare = String("Template error");
-  return tocompare;
-}
-    
-void Logthis(const char *LOG){
-  File LogFile;
-  LogFile = SD.open("Log.txt", FILE_WRITE);
-  LogFile.write(LOG);
-  LogFile.write("\r\n");
-  LogFile.close();
-}
 //Инициализируем настройки портов вводы вывода
 void mainInit() //Инициализация параметров
 {

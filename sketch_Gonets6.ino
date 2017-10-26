@@ -2,8 +2,7 @@
 #include <Ethernet.h>  //Библиотека для работы в сети
 #include <string.h> //Библиотека для работ со строками
 #include <stdio.h> //Библиотека для преобразования
-#include <SD.h> //Библиотека для работы с SD
-
+#include <EEPROM.h>
 //Regexp Features
 #include <Regexp.h>
 #define MAXCAPTURES 4
@@ -13,18 +12,10 @@
 EthernetServer server(SERVER_PORT);
 
 //my defines
-#define IN_BODY 0
-#define IN_TEMPLATE 1
 #define MAX_NUM_ATTEMPTS 3
-#define MAX_TEMPLATE_LENGTH 10
 #define GONETS_PORT 80
-#define GONETS_SEND_SATT_GSM 1
-#define GONETS_SEND_SATT 0
-#define GONETS_SEND_GSM 2
 #define NORMAL_STATE 0
 #define SD_INIT_FAIL 1
-
-uint8_t main_state = NORMAL_STATE;
 
 // HTTP request
 #define REQ_BUF_SIZE 128
@@ -151,62 +142,60 @@ char toTerm[5]= "7";
 IPAddress ip(my_IP);//Свой IP
 IPAddress GonetsIP(send_IP);//IP устройства назначения
 
-void setConf(const String &strBuffer){
-  MatchState ms;
-  ms.Target (strBuffer.c_str());  // what to search
-  char result = ms.Match ("(%w+)=(.+)", 0);
-  if (result != REGEXP_MATCHED){
-    Serial.println("Config missmatches!");  
-    return;
-  }
-  char captBuffer[64];  
-  String key = ms.GetCapture(captBuffer,0);
-  char* value = ms.GetCapture(captBuffer,1);
-  if (key == "ip") {
-    ms.Target (value);  // what to search
-    result = ms.Match("(%d+).(%d+).(%d+).(%d+)", 0);
-    if (result != REGEXP_MATCHED) {
-      Serial.print("IP mismatch!");
-      return;
-    }  
-    for (byte i=0; i<4; i++) {
-       my_IP[i] = atoi(ms.GetCapture(captBuffer,i));
-     }
-     //Назначаем новый IP адрес
-    IPAddress ip(my_IP);
-    Ethernet.begin(mac, ip);
-    Serial.println(Ethernet.localIP());
-
-  }// key = ip
-  else if (key == "ipdest") {
-    ms.Target (value);  // what to search
-    result = ms.Match("(%d+).(%d+).(%d+).(%d+)", 0);
-    if (result != REGEXP_MATCHED) {
-      Serial.print("SendIP mismatch!");
-      return;
-    }  
-    byte new_ip[4];
-    for (byte i=0; i<4; i++) {
-       new_ip[i] = atoi(ms.GetCapture(captBuffer,i));
-     }
-    IPAddress GonetsIP(new_ip);
-  }
+void EEPROMreadconf() {
+ byte chread = EEPROM.read(1);
+ char ch;
+ string readbuff = "";
+ switch (chread) {
+   case 0: {
+   BRate_serial1 = 9600;
+   break;
+   }
+   case 1: {
+   BRate_serial1 = 19200;
+   break;
+   }
+   case 2: {
+   BRate_serial1 = 38400;
+   break;
+   case 3: {
+   BRate_serial1 = 57600;
+   break;
+   }
+   case 4: {
+   BRate_serial1 = 115200;
+   break;
+   }
+   }
+ for (byte i = 0; i < 4; i++) {
+   my_IP[i] = EEPROM.read(SELFIP_SHIFT+i);
+   send_IP[i] = EEPROM.read(SENDIP_SHIFT+i);
+ }
+ for (i = 0; i<5; i++){
+   if ((ch=EEPROM.read(FROM_SHIFT+i)!='\0') {
+   readbuff += ch;
+ }
+ else break;
+ fromTerm = readbuff.c_str();
+ readbuff = "";
+ for (i = 0; i<5; i++){
+   if ((ch=EEPROM.read(TO_SHIFT+i)!='\0') {
+    readbuff += ch;
+   }
+   else break;
+ toTerm = readbuff.c_str();         
 }
 
 //Инициализируем настройки портов вводы вывода
-void mainInit() //Инициализация параметров
-{
-  Serial.begin(9600);
-  //Serial.begin(BRate_serial1);
-  Serial.setTimeout(200);
+void serverInit() {
+  ip(my_IP);
+  GonetsIP(send_IP);
   Ethernet.begin(mac, ip);
-  if (!SD.begin(4)) {
-    Serial.println("SD initialization failed!");
-    main_state = SD_INIT_FAIL;
-  }
   server.begin();
   delay(200);
-  Serial.println(F("Ready..."));
+}
+void serialInit() {
+  Serial.begin(9600);
   Serial1.begin(BRate_serial1);
   Serial1.setTimeout(200);
 }
@@ -385,14 +374,17 @@ void serialWorks() { //Serial recieving and sending messages
     }
     if (serialReq != ""){
     sendBuff = serialReq.c_str();
-    GonetsHTTPsend(sendBuff,fromTerm,toTerm, GONETS_SEND_SATT_GSM);
+    GonetsHTTPsend(sendBuff,fromTerm,toTerm, 1);
     serialReq = "";
     }
 }
 
 void setup() {
-    mainInit();
-    sdreadconf();
+  if (EEPROM.read(0) != 0) {
+    EEPROMreadconf();
+  }
+  serialInit();  
+  serverInit();
 }
 
 void loop() {

@@ -31,7 +31,7 @@ String request = "";
 #define INDEX_STR     "index"
 #define HTM_EXT       ".HTM"
 
-uint16_t BRate_serial1 = 57600;
+uint32_t BRate_serial1 = 57600;
 
 /* Authorization
 #define AUTH_OFF 0
@@ -67,6 +67,158 @@ char StrContains(char *str, char *sfind) {
   return 0;
 }
 
+#define OUT_BODY 0
+#define IN_BODY 1
+#define IN_SELF_IP 2
+#define IN_DEST_IP 3
+#define IN_FROM 4
+#define IN_TO 5
+#define IN_MODE 6
+
+boolean parseconfig(const char *buffer) {
+  byte read_state=OUT_BODY;
+  string srtBuff = "";
+  byte count = 0;
+  byte ch;
+  int num;
+  for (byte i = 0; i<REQ_BUF_SIZE; i++ ){
+       switch (read_state) {
+         case OUT_BODY : {
+          if (buffer[i] = '?') read_state = IN_BODY;
+          break;
+         }
+         case IN_BODY : {
+          if (buffer[i] != '=') {
+            srtBuff += buffer[i];
+            break;
+          }
+          else {
+            if (strBuff == "ip"){
+              read_state = IN_SELF_IP;
+              strBuff = "";
+              break;
+            else if (strBuff == "ip_dest")
+              read_state = IN_DEST_IP;
+              strBuff = "";
+              break;
+            else if (strBuff == "from") {
+              read_state = IN_FROM;
+              strBuff = "";
+              break;
+            else if (strBuff == "to") {
+              read_state = IN_TO;
+              strBuff = "";
+              break;
+            else if (strBuff == "mode") {
+              read_state = IN_MODE;
+              strBuff = "";
+              break;
+            else return false;
+         }
+         case IN_SELF_IP :{
+            if (buffer[i] = '&') {
+              num = atoi(strBuff.c_str());
+              if (num > 255) return false;
+              my_IP[count] = num;
+              count = 0;
+              strBuff = "";
+              read_state = IN_BODY;
+              break;
+            }
+            if (buffer[i] = '.') {
+              num = atoi(strBuff.c_str());
+              if (num > 255) return false;
+              my_IP[count++] = num;
+              if (count > 3) return false;
+              break;
+            }
+            else if (isdigit(buffer[i])){
+                  srtBuff += buffer[i];
+                  break;
+                  }
+                  else return false;
+                        
+         }
+         case IN_DEST_IP :{
+            if (buffer[i] = '&') {
+              num = atoi(strBuff.c_str());
+              if (num > 255) return false;
+              my_IP[count] = num;
+              count = 0;
+              strBuff = "";
+              read_state = IN_BODY;
+              break;
+            }
+            if (buffer[i] = '.') {
+              num = atoi(strBuff.c_str());
+              if (num > 255) return false;
+              send_IP[count++] = num;
+              if (count > 3) return false;
+              break;
+            }
+            else if (isdigit(buffer[i])){
+                  srtBuff += buffer[i];
+                  break;
+                  }
+                  else return false;
+         }
+         case IN_TO : {
+          if (buffer[i] = '&') {
+             toTerm = strBuff.c_str();
+             strBuff = "";
+             read_state = IN_BODY;
+             break;
+          }
+          else if (isdigit(buffer[i])){
+                  srtBuff += buffer[i];
+                  break;
+               }
+               else return false;
+         }
+         case IN_FROM : {
+             if (buffer[i] = '&') {
+             fromTerm = strBuff.c_str();
+             strBuff = "";
+             read_state = IN_BODY;
+             break;
+             }
+              else if (isdigit(buffer[i])){
+                      srtBuff += buffer[i];
+                      break;
+                   }
+                   else return false;
+         }
+         case IN_MODE : {
+           if (isdigit(buffer[i])){ 
+           switch (atoi(buffer[i]) {
+             case 0 : {
+               BRate_serial1 = 9600;
+               return true;
+             }
+             case 1 : {
+               BRate_serial1 = 19200;
+               return true;
+             }
+             case 2 : {
+               BRate_serial1 = 38400;
+               return true;
+             }
+             case 3 : {
+               BRate_serial1 = 57600;
+               break;
+             }
+             case 4 : {
+               BRate_serial1 = 115200;
+               return true;
+             }
+             
+           }
+           else return false;
+         }
+      }            
+  }
+}
+
 // server answers
 String makeAnswer(String content) {
   String s = "";
@@ -92,32 +244,14 @@ void sendErrorAnswer(char mess[], EthernetClient cl) {
  void parseRequest(EthernetClient cl) {
   // index request
   if (StrContains(HTTP_req, "GET / ") || StrContains(HTTP_req, "GET /index.htm")) {
-    
-       sendHtmlAnswer(cl);
-       internalHTMLsend(cl);
-    }
-    else if (openIndexFile()) {
-      sendHtmlAnswer(cl);
-      sendBodyAnswerHTML(cl);
-      
-    } else {
-      webFile = SD.open(F("404.htm"));
-      sendBodyAnswer(cl);
-    }
+     sendHtmlAnswer(cl);
+     internalHTMLsend(cl);
   }
-  else if (StrContains(HTTP_req, GET)) {
-    // files requests
-    if      (StrContains(HTTP_req, ".htm")) {
-      if (openWebFile()) {
-        sendHtmlAnswer(cl);
-        sendBodyAnswerHTML(cl);
-      } else {
-        webFile = SD.open(F("404.htm"));
-        sendBodyAnswer(cl);
-      }
-    }
+  else if (StrContains(HTTP_req, "GET /?")) {
+     if (parseconfig(HTTP_req)) cl.println(F("Configuration change succseful");
+     else cl.println(F("Configuration change error"));
   }
-} // parseRequest ( )
+}  // parseRequest ( )
 
 //________________________________________________________________________________________________________________________________________________________________
 
@@ -367,7 +501,7 @@ void GonetsHTTPsend(char *msg, char *fromTerminal, char *toTerminal,byte chSv) {
 } //GonetsHTTPsend
 
 void serialWorks() { //Serial recieving and sending messages
-    String serialReq;
+    String serialReq = "";
     char *sendBuff;
     if (Serial1.available()>0){
       serialReq = Serial1.readString();
@@ -375,7 +509,6 @@ void serialWorks() { //Serial recieving and sending messages
     if (serialReq != ""){
     sendBuff = serialReq.c_str();
     GonetsHTTPsend(sendBuff,fromTerm,toTerm, 1);
-    serialReq = "";
     }
 }
 

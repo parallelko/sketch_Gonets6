@@ -5,13 +5,13 @@ void internalHTMLsend(EthernetClient cl){
   cl.println(F("<head>")); 
   cl.println(F("<meta charset=\"utf-8\">"));
   cl.println(F("<title>DoubleA Gonets sender</title>"));
-  cl.println(F("</head>"))
+  cl.println(F("</head>"));
   cl.println(F("<body>"));
   cl.println(F("<h2>DoubleA configuration</h2>"));
   cl.println(F("<table border='0'>"));
   cl.println(F("<tr><td>Свой IP адрес</td><td><input id=\"textField1\" type=\"text\" value=\""));
   cl.print(my_IP[0]); cl.print('.'); cl.print(my_IP[1]); cl.print('.'); cl.print(my_IP[2]); cl.print('.'); cl.print(my_IP[3]); cl.println(F("\"></input></td></tr>"));
-  cl.println(F("<tr><td>IP адрес терминала ГОНЕЦ</td><td><input id=\"textField2\" type=\"text\" value=\"")
+  cl.println(F("<tr><td>IP адрес терминала ГОНЕЦ</td><td><input id=\"textField2\" type=\"text\" value=\""));
   cl.print(send_IP[0]); cl.print('.'); cl.print(send_IP[1]); cl.print('.'); cl.print(send_IP[2]); cl.print('.'); cl.print(send_IP[3]); cl.println(F("\"></input></td></tr>"));           
   cl.print(F("<tr><td>Номер отправляющего терминала ГОНЕЦ</td><td><input id=\"textField3\" type=\"text\" value=\"")); cl.print(fromTerm); cl.println(F("\"></input></td></tr>"));
   cl.println(F("<tr><td>Номер принимающего термиенала ГОНЕЦ</td><td><input id=\"textField4\" type=\"text\" value=\"")); cl.print(toTerm); cl.println(F("\"></input></td></tr>"));

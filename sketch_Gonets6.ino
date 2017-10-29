@@ -18,11 +18,12 @@
 #define IN_FROM 4
 #define IN_TO 5
 #define IN_MODE 6
+#define ENDING 7
 #define SELFIP_SHIFT 1
 #define SENDIP_SHIFT 5
 #define FROM_SHIFT 10
 #define TO_SHIFT 20
-//#define 
+
 
 byte my_IP[] = {192,168,1,127};
 byte send_IP[] = {192,168,1,55};
@@ -39,6 +40,9 @@ boolean parseconfig(const char *reqbuffer) {
   int num;
   for (byte i = 0; i < REQ_BUF_SIZE; i++ ) {
        switch (read_state) {
+         case ENDING : {
+          break;
+         }
          case OUT_BODY : {
           if (reqbuffer[i] == '?') read_state = IN_BODY;
           break;
@@ -49,6 +53,7 @@ boolean parseconfig(const char *reqbuffer) {
             break;
           }
           else {
+            Serial.println(strBuff);
             if (strBuff == "ip"){
               read_state = IN_SELF_IP;
               strBuff = "";
@@ -81,17 +86,19 @@ boolean parseconfig(const char *reqbuffer) {
             if (reqbuffer[i] == '&') {
               num = atoi(strBuff.c_str());
               if (num > 255) return false;
-              my_IP[count] = num;
+              my_IP[3] = num;
               count = 0;
               strBuff = "";
               read_state = IN_BODY;
               break;
             }
             if (reqbuffer[i] == '.') {
+              if (count > 4) return false;
               num = atoi(strBuff.c_str());
               if (num > 255) return false;
-              my_IP[count++] = num;
-              if (count > 3) return false;
+              my_IP[count] = num;
+              strBuff = "";
+              count++;
               break;
             }
             else if (isdigit(reqbuffer[i])){
@@ -105,17 +112,19 @@ boolean parseconfig(const char *reqbuffer) {
             if (reqbuffer[i] == '&') {
               num = atoi(strBuff.c_str());
               if (num > 255) return false;
-              my_IP[count] = num;
+              send_IP[3] = num;
               count = 0;
               strBuff = "";
               read_state = IN_BODY;
               break;
             }
             if (reqbuffer[i] == '.') {
+              if (count > 4) return false;
               num = atoi(strBuff.c_str());
               if (num > 255) return false;
-              send_IP[count++] = num;
-              if (count > 3) return false;
+              send_IP[count] = num;
+              strBuff = "";
+              count++;
               break;
             }
             else if (isdigit(reqbuffer[i])){
@@ -123,25 +132,28 @@ boolean parseconfig(const char *reqbuffer) {
                   break;
                   }
                   else return false;
-         }
-         case IN_TO : {
-          if (reqbuffer[i] == '&') {
-             if (sprintf(toTerm, "%s", strBuff.c_str()) > 0){
-             strBuff = "";
-             read_state = IN_BODY;
-             break;
-             }
-             else return false;
-          }
-          else if (isdigit(reqbuffer[i])){
-                  strBuff += reqbuffer[i];
-                  break;
-               }
-               else return false;
+                        
          }
          case IN_FROM : {
              if (reqbuffer[i] == '&') {
               if(sprintf(fromTerm, "%s", strBuff.c_str()) > 0) {
+              Serial.println(fromTerm);
+              strBuff = "";
+              read_state = IN_BODY;
+              break;
+              }
+              else return false;
+             }
+             else if (isdigit(reqbuffer[i])){
+                      strBuff += reqbuffer[i];
+                      break;
+                   }
+                   else return false;
+         }
+         case IN_TO : {
+             if (reqbuffer[i] == '&') {
+              if(sprintf(toTerm, "%s", strBuff.c_str()) > 0) {
+              Serial.println(toTerm);
               strBuff = "";
               read_state = IN_BODY;
               break;
@@ -156,34 +168,38 @@ boolean parseconfig(const char *reqbuffer) {
          }
          case IN_MODE : {
            if (isdigit(reqbuffer[i])){ 
-            switch (atoi(reqbuffer[i])) {
+            switch (ch=atoi(reqbuffer[i])) {
              case 0 : {
                BRate_serial1 = 9600;
                break;
-            }
-            case 1 : {
+             }
+             case 1 : {
                BRate_serial1 = 19200;
                break;
-            }
-            case 2 : {
+             }
+             case 2 : {
                BRate_serial1 = 38400;
                break;
-            }
-            case 3 : {
+             }
+             case 3 : {
                BRate_serial1 = 57600;
                break;
-            }
-            case 4 : {
+             }
+             case 4 : {
                BRate_serial1 = 115200;
                break;
-            }
+             }
            }
+           read_state = ENDING;
           }
           else return false;
          }
       }            
   }
-  EEPRROMsetconfig();
+  
+ // EEPRROMsetconfig();
+  Serial.println(BRate_serial1);
+  Serial.println("Success");
   return true;
 }
 
@@ -241,7 +257,7 @@ void EEPROMreadconf() {
 
 void serialInit() {
   Serial.begin(9600);
-  Serial1.begin(BRate_serial1);
+  Serial1.begin(9600);
   Serial1.setTimeout(200);
 }
 
@@ -251,6 +267,7 @@ void GonetsHTTPsend(char *msg, char *fromTerminal, char *toTerminal,byte chSv) {
   byte ln = 0;
   byte tryN = 0;
   char sendbuff[256];
+ // Serial.println(msg);
   ln = sprintf(sendbuff,"from=%s&to=%s&urgency=0&chSv=%d&subj=data&msg=%s",fromTerminal,toTerminal,chSv, msg); //Подготовка строки к отправке
    //Задаем 3 попытки для коннекта
   while (tryN<MAX_NUM_ATTEMPTS){
@@ -285,6 +302,7 @@ void serialWorks() { //Serial recieving and sending messages
     char *sendBuff;
     if (Serial1.available()>0){
       serialReq = Serial1.readString();
+      Serial.println(serialReq);
     }
     if (serialReq != ""){
     sendBuff = serialReq.c_str();
@@ -293,11 +311,13 @@ void serialWorks() { //Serial recieving and sending messages
 }
 
 void setup() {
-  if (EEPROM.read(0) != 0) {
-    EEPROMreadconf();
-  }
+ // if (EEPROM.read(0) != 0) {
+  //  EEPROMreadconf();
+ // }
   serialInit();  
   serverInit();
+ // ADCSRA = 0;
+  Serial.println("Ready...");
 }
 
 void loop() {

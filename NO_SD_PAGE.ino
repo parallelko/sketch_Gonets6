@@ -21,7 +21,7 @@ void internalHTMLsend(EthernetClient cl){
   cl.println(F("<div id=\"console\"></div>"));
   cl.println(F("<script>"));
   cl.println(F("function loadXMLDoc() {"));
-  cl.println(F("var v1 = textField2.value;"));     
+  cl.println(F("var v1 = textField1.value;"));     
   cl.println(F("var v2 = textField2.value;"));     
   cl.println(F("var v3 = textField3.value;"));     
   cl.println(F("var v4 = textField4.value;"));     
@@ -30,7 +30,6 @@ void internalHTMLsend(EthernetClient cl){
   cl.println(F("if (this.readyState == 4 && this.status == 200) {"));     
   cl.println(F("document.getElementById(\"console\").innerHTML = this.responseText;"));     
   cl.println('}');     
-  cl.println(F("};"));     
   cl.println(F("xhttp.open(\"GET\", \"/?ip=\" + v1 + \"&ip_dest=\" + v2 + \"&from=\" + v3 + \"&to=\" + v4 + \"&mode=\" + v5, true);"));     
   cl.println(F("xhttp.send();"));     
   cl.println('}');     

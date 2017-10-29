@@ -94,7 +94,6 @@ String ipString(byte ip[]) {
     if (i < 3)
       s += '.';
   }
-  Serial.println(s);
   return s;
 }
 
@@ -216,7 +215,7 @@ void serverWorks2(EthernetClient sclient) {
   } // if (client)  
 } // serverWorks2( )
 
-void serverWorks() { //РћР±СЂР°Р±РѕС‚РєР° СЃРѕРѕР±С‰РµРЅРёР№ Ethernet
+void serverWorks() {
   for (int sock = 0; sock < MAX_SOCK_NUM - 1; sock++) {
     EthernetClient sclient = server.available_(sock);
     serverWorks2(sclient);

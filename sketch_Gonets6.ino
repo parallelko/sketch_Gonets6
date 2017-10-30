@@ -2,11 +2,7 @@
 #include <Ethernet.h>  //Библиотека для работы в сети
 #include <string.h> //Библиотека для работ со строками
 #include <stdio.h> //Библиотека для преобразования
-#include <EEPROM.h>
-//Regexp Features
-#include <Regexp.h>
-#define MAXCAPTURES 4
-#define REQ_BUF_SIZE 128
+#include <EEPROM.h> //Библиотека для работы с памятью
 
 //my defines
 #define MAX_NUM_ATTEMPTS 3
@@ -23,20 +19,23 @@
 #define SENDIP_SHIFT 5
 #define FROM_SHIFT 10
 #define TO_SHIFT 20
+#define MODE_SHIFT 30
+#define REQ_BUF_SIZE 128
+#define EEPROM_CHECK 0
 
-
+int fromTerm = 1025;
+int toTerm = 7;
 byte my_IP[] = {192,168,1,127};
 byte send_IP[] = {192,168,1,55};
-char fromTerm[5]= "1025";
-char toTerm[5]= "7";
 IPAddress GonetsIP(send_IP);//IP устройства назначения
-uint32_t BRate_serial1 = 57600;
+uint8_t Serial_MODE;
 
 boolean parseconfig(const char *reqbuffer) {
   byte read_state = OUT_BODY;
   String strBuff = "";
   byte count = 0;
   byte ch;
+  //char *s;
   int num;
   for (byte i = 0; i < REQ_BUF_SIZE; i++ ) {
        switch (read_state) {
@@ -53,7 +52,6 @@ boolean parseconfig(const char *reqbuffer) {
             break;
           }
           else {
-            Serial.println(strBuff);
             if (strBuff == "ip"){
               read_state = IN_SELF_IP;
               strBuff = "";
@@ -136,140 +134,115 @@ boolean parseconfig(const char *reqbuffer) {
          }
          case IN_FROM : {
              if (reqbuffer[i] == '&') {
-              if(sprintf(fromTerm, "%s", strBuff.c_str()) > 0) {
-              Serial.println(fromTerm);
+              fromTerm = atoi(strBuff.c_str());
               strBuff = "";
               read_state = IN_BODY;
               break;
-              }
-              else return false;
              }
              else if (isdigit(reqbuffer[i])){
                       strBuff += reqbuffer[i];
                       break;
-                   }
-                   else return false;
+                  }
+                  else return false;
          }
          case IN_TO : {
              if (reqbuffer[i] == '&') {
-              if(sprintf(toTerm, "%s", strBuff.c_str()) > 0) {
-              Serial.println(toTerm);
+              toTerm = atoi(strBuff.c_str());
               strBuff = "";
               read_state = IN_BODY;
               break;
-              }
-              else return false;
              }
              else if (isdigit(reqbuffer[i])){
                       strBuff += reqbuffer[i];
                       break;
-                   }
-                   else return false;
+                  }
+                  else return false;
          }
          case IN_MODE : {
            if (isdigit(reqbuffer[i])){ 
-            switch (ch=atoi(reqbuffer[i])) {
-             case 0 : {
-               BRate_serial1 = 9600;
-               break;
-             }
-             case 1 : {
-               BRate_serial1 = 19200;
-               break;
-             }
-             case 2 : {
-               BRate_serial1 = 38400;
-               break;
-             }
-             case 3 : {
-               BRate_serial1 = 57600;
-               break;
-             }
-             case 4 : {
-               BRate_serial1 = 115200;
-               break;
-             }
+              char s[]= {reqbuffer[i], '\0'} ;
+              Serial_MODE = atoi(s);
+              read_state = ENDING;
            }
-           read_state = ENDING;
-          }
-          else return false;
+           else return false;
+           break;
          }
       }            
   }
-  
- // EEPRROMsetconfig();
-  Serial.println(BRate_serial1);
-  Serial.println("Success");
+  EEPRROMsetconfig();
   return true;
 }
 
 void EEPRROMsetconfig() {
-  
+ EEPROM.write(MODE_SHIFT, Serial_MODE);
+ delay(50);
+ for (byte i = 0; i<4; i++) {
+ EEPROM.write(SELFIP_SHIFT+i, my_IP[i]);
+ delay(50);
+ EEPROM.write(SENDIP_SHIFT+i, send_IP[i]);
+ delay(50);
+ }
+ EEPROM.write(FROM_SHIFT, highByte(fromTerm));
+ delay(50);
+ EEPROM.write(FROM_SHIFT+1, lowByte(fromTerm));
+ delay(50);
+ EEPROM.write(TO_SHIFT, highByte(toTerm));
+ delay(50);
+ EEPROM.write(TO_SHIFT+1, lowByte(toTerm));
+ delay(50);
+ EEPROM.write(EEPROM_CHECK, 1);
+ delay(50);
 }
 
 void EEPROMreadconf() {
- byte chread = EEPROM.read(1);
- char ch;
- String readbuff = "";
- switch (chread) {
-   case 0: {
-   BRate_serial1 = 9600;
-   break;
-   }
-   case 1: {
-   BRate_serial1 = 19200;
-   break;
-   }
-   case 2: {
-   BRate_serial1 = 38400;
-   break;
-   }
-   break;
-   case 3: {
-   BRate_serial1 = 57600;
-   break;
-   }
-   case 4: {
-   BRate_serial1 = 115200;
-   break;
-   }
-   }
+ Serial_MODE = EEPROM.read(MODE_SHIFT);
  for (byte i = 0; i < 4; i++) {
    my_IP[i] = EEPROM.read(SELFIP_SHIFT+i);
+ }
+ for (byte i = 0; i < 4; i++) {
    send_IP[i] = EEPROM.read(SENDIP_SHIFT+i);
  }
- for (byte i = 0; i<5; i++){
-   if ((ch=EEPROM.read(FROM_SHIFT+i)) !='\0') {
-   readbuff += ch;
-   }
-  else break;
- }
- sprintf(fromTerm, "%s", readbuff.c_str());
- readbuff = "";
- for (byte i = 0; i<5; i++){
-   if ((ch=EEPROM.read(TO_SHIFT+i)) != '\0') {
-    readbuff += ch;
-   }
-   else break;
- }
-   sprintf(toTerm, "%s", readbuff.c_str());         
+ fromTerm = word(EEPROM.read(FROM_SHIFT), EEPROM.read(FROM_SHIFT+1));
+ toTerm = word(EEPROM.read(TO_SHIFT), EEPROM.read(TO_SHIFT+1));
 }
 
 void serialInit() {
-  Serial.begin(9600);
-  Serial1.begin(9600);
+  //Serial.begin(9600);
+  switch (Serial_MODE) {
+    case 0 : {
+      Serial1.begin(9600);
+      break;
+    }
+    case 1 : {
+      Serial1.begin(19200);
+      break;
+    }
+    case 2 : {
+      Serial1.begin(38400);
+      break;
+    }
+    case 3 : {
+      Serial1.begin(57600);
+      break;
+    }
+    case 4 : {
+      Serial1.begin(115200);
+      break;
+    }
+  }
   Serial1.setTimeout(200);
 }
 
-void GonetsHTTPsend(char *msg, char *fromTerminal, char *toTerminal,byte chSv) { //Функция для отправки сообщений в гонец
+void GonetsHTTPsend(char *msg, int fromTerminal, int toTerminal,byte chSv) { //Функция для отправки сообщений в гонец
   EthernetClient client;
   //Подготовка строки к отправке
   byte ln = 0;
   byte tryN = 0;
   char sendbuff[256];
  // Serial.println(msg);
-  ln = sprintf(sendbuff,"from=%s&to=%s&urgency=0&chSv=%d&subj=data&msg=%s",fromTerminal,toTerminal,chSv, msg); //Подготовка строки к отправке
+  ln = sprintf(sendbuff,"from=%d&to=%d&urgency=0&chSv=%d&subj=data&msg=%s",fromTerminal,toTerminal,chSv, msg); //Подготовка строки к отправке
    //Задаем 3 попытки для коннекта
+  Serial.println(sendbuff);
   while (tryN<MAX_NUM_ATTEMPTS){
     if (client.connect(GonetsIP, GONETS_PORT)) {
         // HTTP-Reqest:
@@ -302,7 +275,6 @@ void serialWorks() { //Serial recieving and sending messages
     char *sendBuff;
     if (Serial1.available()>0){
       serialReq = Serial1.readString();
-      Serial.println(serialReq);
     }
     if (serialReq != ""){
     sendBuff = serialReq.c_str();
@@ -311,13 +283,15 @@ void serialWorks() { //Serial recieving and sending messages
 }
 
 void setup() {
- // if (EEPROM.read(0) != 0) {
-  //  EEPROMreadconf();
- // }
-  serialInit();  
-  serverInit();
- // ADCSRA = 0;
-  Serial.println("Ready...");
+ Serial.begin(9600);  
+ if (EEPROM.read(EEPROM_CHECK) != 0) {
+   EEPROMreadconf();
+ }
+ serialInit();  
+ serverInit();
+ ADCSRA = 0;
+ Serial.println("Ready...");
+  
 }
 
 void loop() {

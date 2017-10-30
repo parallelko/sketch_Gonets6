@@ -20,11 +20,12 @@ byte authMode = AUTH_OFF;
 String AUTH_HASH = "Authorization: Basic YWRtaW46YW1z"; // admin:ams
 */
 void serverInit() {
-  IPAddress ip(my_IP);
-  IPAddress GonetsIP(send_IP);
-  Ethernet.begin(mac, ip);
+  ip=my_IP;
+  GonetsIP=send_IP;
+  Ethernet.begin(mac, my_IP);
   server.begin();
   delay(200);
+  Serial.println(Ethernet.localIP());
 }
 
 boolean recieveAnswer(EthernetClient cl) { //Проверка ответа от терминала
@@ -104,7 +105,7 @@ String makeAnswer(String content) {
   s += F("Content-Type: ");
   s += content;
   s += F("\n");
-  s += F("Connnection: close\n"); // "Connection: keep-alive\n"
+  s += F("Connection: keep-alive\n"); // "Connection: keep-alive\n" "Connnection: close\n"
   return s;
 }
 
@@ -126,10 +127,16 @@ void parseRequest(EthernetClient cl) {
      internalHTMLsend(cl);
   }
   else if (StrContains(HTTP_req, "GET /?")) {
-     if (parseconfig(HTTP_req)) cl.println(F("Configuration change succseful"));
-     else cl.println(F("Configuration change error"));
+     if (parseconfig(HTTP_req)) {
+      sendHtmlAnswer(cl);
+      cl.println(F("Configuration change succseful"));
+     }
+     else {
+      sendHtmlAnswer(cl);
+      cl.println(F("Configuration change error"));
+     }
   }
-}  // parseRequest ( ))
+}  // parseRequest ()
 
 void serverWorks2(EthernetClient sclient) {
   String strRequest = "";

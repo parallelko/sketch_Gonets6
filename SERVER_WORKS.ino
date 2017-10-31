@@ -31,24 +31,17 @@ void serverInit() {
 boolean recieveAnswer(EthernetClient cl) { //Проверка ответа от терминала
   String strRequest = "";
   byte tryN = 0;
+  reqIndex = 0;
   if (cl) {
     while (cl.connected() && tryN<MAX_NUM_ATTEMPTS) {      
       while (cl.available()) {   // client data available to read
         char c = cl.read();   // read 1 byte (character) from client
-        if (reqIndex < (REQ_BUF_SIZE - 1)) {
-          HTTP_req[reqIndex] = c; // save HTTP request character
-          reqIndex++;
-        }
         if (strRequest.length() < MAX_LEN_STRING) {
           strRequest += c;
         }
         if (c == '\n' || strRequest.length() >= MAX_LEN_STRING) {
           //Parsing answers
           if (strRequest.indexOf(F("OK")) > 0) {
-            //Clear global buffers
-            reqIndex = 0;
-            StrClear(HTTP_req, REQ_BUF_SIZE);
-            request = "";
             return true;
           }
         }

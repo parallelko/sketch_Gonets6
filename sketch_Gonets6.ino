@@ -3,11 +3,12 @@
 #include <string.h> //Библиотека для работ со строками
 #include <stdio.h> //Библиотека для преобразования
 #include <EEPROM.h> //Библиотека для работы с памятью
-#include <MsTimer2.h> 
+#include <MsTimer2.h> //Library for Timer interupts
 
 //my defines
 #define MAX_NUM_ATTEMPTS 3
 #define GONETS_PORT 80
+//Parsing State machine
 #define OUT_BODY 0
 #define IN_BODY 1
 #define IN_SELF_IP 2
@@ -16,56 +17,62 @@
 #define IN_TO 5
 #define IN_MODE 6
 #define ENDING 7
+//EEPROM adresses 
+#define EEPROM_CHECK 0
 #define SELFIP_SHIFT 1
 #define SENDIP_SHIFT 5
 #define FROM_SHIFT 10
 #define TO_SHIFT 20
 #define MODE_SHIFT 30
+//Ethernet defines
 #define REQ_BUF_SIZE 128
-#define EEPROM_CHECK 0
-#define POWER_UP_PIN 7
 #define SEND_BUFFER_LENGHT 128
+//Main state machine
 #define WAITING_MSG 0
 #define WARMUP 1
 #define WAIT_FOR_TRANSMIT 2
 #define SERIAL_READY 1
 #define SERIAL_BUSY 0
-#define WARMUP_TIME 10;
-#define TRANSMIT_TIME 20;
+//Timer definest
+#define WARMUP_TIME 10
+#define TRANSMIT_TIME 20
+//Other
+#define POWER_UP_PIN 7
 
-int fromTerm = 1025;
-int toTerm = 7;
-byte my_IP[] = {192,168,1,127};
-byte send_IP[] = {192,168,1,55};
-IPAddress GonetsIP(send_IP);//IP устройства назначения
-uint8_t Serial_MODE = SERIAL_READY;
-char sendBuff[SEND_BUFFER_LENGHT];
-uint8_t main_state = WAITING_MSG ;
-byte mm = 0;
-byte ss = 0;
+//Global variables
+int fromTerm = 1025; // ID of sending Terminal
+int toTerm = 7; // ID of Recieving terminal
+byte my_IP[] = {192,168,1,127}; // Self IP adress
+byte send_IP[] = {192,168,1,55};// Send IP adress
+IPAddress GonetsIP(send_IP);// Not sure if that needed or not
+uint8_t Serial_MODE; //Serial port 1 mode(baud_rate)
+uint8_t serial_state = SERIAL_READY; // State of serial port 1
+char sendBuff[SEND_BUFFER_LENGHT]; // Buffer for sending messages
+uint8_t main_state = WAITING_MSG ; // Main state variable
+byte mm = 0; // Minutes
+byte ss = 0; // Seconds
 
-boolean parseconfig(const char *reqbuffer) {
+boolean parseconfig(const char *reqbuffer) { // Recieve from HTTP reqest variable parcer
   byte read_state = OUT_BODY;
   String strBuff = "";
-  byte count = 0;
-  byte ch;
-  //char *s;
-  int num;
-  for (byte i = 0; i < REQ_BUF_SIZE; i++ ) {
+  byte count = 0; //Count of IP bytes
+  int num; // for check if IP > 255
+  for (byte i = 0; i < REQ_BUF_SIZE; i++ ) { // Go on all recieved HTTP reqest
        switch (read_state) {
          case ENDING : {
           break;
          }
          case OUT_BODY : {
-          if (reqbuffer[i] == '?') read_state = IN_BODY;
+          if (reqbuffer[i] == '?') read_state = IN_BODY; //If meet start char
           break;
          }
          case IN_BODY : {
-          if (reqbuffer[i] != '=') {
+          if (reqbuffer[i] != '=') { //Read until we meet "="
             strBuff += reqbuffer[i];
             break;
           }
           else {
+            //KEY of value
             if (strBuff == "ip"){
               read_state = IN_SELF_IP;
               strBuff = "";
@@ -240,7 +247,7 @@ void statusProcess() {
       else break;
     }
     case WARMUP : {
-      if (mm => WARMUP_TIME) {
+      if (mm >= WARMUP_TIME) {
         main_state = WAIT_FOR_TRANSMIT;
         mm = 0;
         ss = 0;
@@ -250,7 +257,7 @@ void statusProcess() {
       
     }
     case WAIT_FOR_TRANSMIT : {
-      if (mm => TRANSMIT_TIME) {
+      if (mm >= TRANSMIT_TIME) {
         digitalWrite(POWER_UP_PIN, LOW);
         main_state = WAITING_MSG;
         mm = 0;
@@ -262,7 +269,7 @@ void statusProcess() {
         serial_state = SERIAL_READY;
       }
       break;
-   
+    }
    }    
 }
 
@@ -353,8 +360,6 @@ void setup() {
  MsTimer2::set(1000, TimeProcess);
  MsTimer2::start();
  Serial.println("Ready...");
-  
-  
 }
 
 void loop() {

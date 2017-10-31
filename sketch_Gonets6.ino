@@ -3,6 +3,7 @@
 #include <string.h> //Библиотека для работ со строками
 #include <stdio.h> //Библиотека для преобразования
 #include <EEPROM.h> //Библиотека для работы с памятью
+#include <MsTimer2.h> 
 
 //my defines
 #define MAX_NUM_ATTEMPTS 3
@@ -29,6 +30,8 @@
 #define WAIT_FOR_TRANSMIT 2
 #define SERIAL_READY 1
 #define SERIAL_BUSY 0
+#define WARMUP_TIME 10;
+#define TRANSMIT_TIME 20;
 
 int fromTerm = 1025;
 int toTerm = 7;
@@ -38,6 +41,8 @@ IPAddress GonetsIP(send_IP);//IP устройства назначения
 uint8_t Serial_MODE = SERIAL_READY;
 char sendBuff[SEND_BUFFER_LENGHT];
 uint8_t main_state = WAITING_MSG ;
+byte mm = 0;
+byte ss = 0;
 
 boolean parseconfig(const char *reqbuffer) {
   byte read_state = OUT_BODY;
@@ -215,24 +220,49 @@ void EEPROMreadconf() {
  toTerm = word(EEPROM.read(TO_SHIFT), EEPROM.read(TO_SHIFT+1));
 }
 
+void TimeProcess() {
+  if (main_state != WAITING_MSG){
+    ss++;
+    if (ss==60) mm++;
+  }
+}
+
 void statusProcess() {
   switch (main_state) {
     case WAITING_MSG: {
       if (serial_state == SERIAL_BUSY) {
         main_state = WARMUP;
         digitalWrite(POWER_UP_PIN, HIGH);
+        mm = 0;
+        ss = 0;
         break;
       }
       else break;
     }
     case WARMUP : {
-      if 
-      //Waiting for 10 min
+      if (mm => WARMUP_TIME) {
+        main_state = WAIT_FOR_TRANSMIT;
+        mm = 0;
+        ss = 0;
+        break;
+      }
+      else break;
+      
     }
     case WAIT_FOR_TRANSMIT : {
-      //Waiting for transmit
-    }
-    
+      if (mm => TRANSMIT_TIME) {
+        digitalWrite(POWER_UP_PIN, LOW);
+        main_state = WAITING_MSG;
+        mm = 0;
+        ss = 0;
+        break;
+      }
+      if (serial_state == SERIAL_BUSY) {
+        GonetsHTTPsend(sendBuff,fromTerm,toTerm, 1);
+        serial_state = SERIAL_READY;
+      }
+      break;
+   
    }    
 }
 
@@ -318,8 +348,12 @@ void setup() {
  }
  serialInit();  
  serverInit();
+ pinMode(POWER_UP_PIN , OUTPUT);
  ADCSRA = 0;
+ MsTimer2::set(1000, TimeProcess);
+ MsTimer2::start();
  Serial.println("Ready...");
+  
   
 }
 

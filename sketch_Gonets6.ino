@@ -22,13 +22,22 @@
 #define MODE_SHIFT 30
 #define REQ_BUF_SIZE 128
 #define EEPROM_CHECK 0
+#define POWER_UP_PIN 7
+#define SEND_BUFFER_LENGHT 128
+#define WAITING_MSG 0
+#define WARMUP 1
+#define WAIT_FOR_TRANSMIT 2
+#define SERIAL_READY 1
+#define SERIAL_BUSY 0
 
 int fromTerm = 1025;
 int toTerm = 7;
 byte my_IP[] = {192,168,1,127};
 byte send_IP[] = {192,168,1,55};
 IPAddress GonetsIP(send_IP);//IP устройства назначения
-uint8_t Serial_MODE;
+uint8_t Serial_MODE = SERIAL_READY;
+char sendBuff[SEND_BUFFER_LENGHT];
+uint8_t main_state = WAITING_MSG ;
 
 boolean parseconfig(const char *reqbuffer) {
   byte read_state = OUT_BODY;
@@ -206,6 +215,27 @@ void EEPROMreadconf() {
  toTerm = word(EEPROM.read(TO_SHIFT), EEPROM.read(TO_SHIFT+1));
 }
 
+void statusProcess() {
+  switch (main_state) {
+    case WAITING_MSG: {
+      if (serial_state == SERIAL_BUSY) {
+        main_state = WARMUP;
+        digitalWrite(POWER_UP_PIN, HIGH);
+        break;
+      }
+      else break;
+    }
+    case WARMUP : {
+      if 
+      //Waiting for 10 min
+    }
+    case WAIT_FOR_TRANSMIT : {
+      //Waiting for transmit
+    }
+    
+   }    
+}
+
 void serialInit() {
   //Serial.begin(9600);
   switch (Serial_MODE) {
@@ -261,7 +291,6 @@ void GonetsHTTPsend(char *msg, int fromTerminal, int toTerminal,byte chSv) { //�
        }
        else
        {
-        //Logthis("Connection failed");
         Serial.println("Connection failed");
         delay(300);
         tryN++;
@@ -272,13 +301,13 @@ void GonetsHTTPsend(char *msg, int fromTerminal, int toTerminal,byte chSv) { //�
 
 void serialWorks() { //Serial recieving and sending messages
     String serialReq = "";
-    char *sendBuff;
     if (Serial1.available()>0){
       serialReq = Serial1.readString();
     }
-    if (serialReq != ""){
-    sendBuff = serialReq.c_str();
-    GonetsHTTPsend(sendBuff,fromTerm,toTerm, 1);
+    if (serialReq != "" && serial_state == SERIAL_READY) {
+    strcpy(sendBuff, serialReq.c_str());
+    serial_state = SERIAL_BUSY;
+    //GonetsHTTPsend(sendBuff,fromTerm,toTerm, 1);
     }
 }
 
@@ -295,6 +324,7 @@ void setup() {
 }
 
 void loop() {
+  statusProcess();
   serverWorks();
   serialWorks();
 }

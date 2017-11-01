@@ -1,6 +1,5 @@
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
 int reqIndex = 0;
-IPAddress ip(my_IP);
 #define SERVER_PORT 80
 EthernetServer server(SERVER_PORT);
 #define REQ_BUF_SIZE 128
@@ -20,11 +19,9 @@ byte authMode = AUTH_OFF;
 String AUTH_HASH = "Authorization: Basic YWRtaW46YW1z"; // admin:ams
 */
 void serverInit() {
-  ip=my_IP;
-  GonetsIP=send_IP;
   Ethernet.begin(mac, my_IP);
   server.begin();
-  delay(200);
+  delay(2000);
   Serial.println(Ethernet.localIP());
 }
 

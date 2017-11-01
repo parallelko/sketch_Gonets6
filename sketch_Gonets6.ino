@@ -3,12 +3,10 @@
 #include <string.h> //Библиотека для работ со строками
 #include <stdio.h> //Библиотека для преобразования
 #include <EEPROM.h> //Библиотека для работы с памятью
-#include <MsTimer2.h> //Library for Timer interupts
+#include <FlexiTimer2.h> //Library for Timer interupts
 
-//my defines
 #define MAX_NUM_ATTEMPTS 3
 #define GONETS_PORT 80
-//Parsing State machine
 #define OUT_BODY 0
 #define IN_BODY 1
 #define IN_SELF_IP 2
@@ -17,27 +15,23 @@
 #define IN_TO 5
 #define IN_MODE 6
 #define ENDING 7
-//EEPROM adresses 
 #define EEPROM_CHECK 0
 #define SELFIP_SHIFT 1
 #define SENDIP_SHIFT 5
 #define FROM_SHIFT 10
 #define TO_SHIFT 20
 #define MODE_SHIFT 30
-//Ethernet defines
 #define REQ_BUF_SIZE 128
 #define SEND_BUFFER_LENGHT 128
-//Main state machine
 #define WAITING_MSG 0
 #define WARMUP 1
 #define WAIT_FOR_TRANSMIT 2
 #define SERIAL_READY 1
 #define SERIAL_BUSY 0
-//Timer definest
-#define WARMUP_TIME 10
-#define TRANSMIT_TIME 20
-//Other
-#define POWER_UP_PIN 7
+#define WARMUP_TIME 5
+#define TRANSMIT_TIME 25
+#define POWER_UP_PIN 30
+#define POWER_UP_PINS 31
 
 //Global variables
 int fromTerm = 1025; // ID of sending Terminal
@@ -230,7 +224,10 @@ void EEPROMreadconf() {
 void TimeProcess() {
   if (main_state != WAITING_MSG){
     ss++;
-    if (ss==60) mm++;
+    if (ss==60) {
+       mm++;
+       ss = 0;
+    }
   }
 }
 
@@ -240,6 +237,7 @@ void statusProcess() {
       if (serial_state == SERIAL_BUSY) {
         main_state = WARMUP;
         digitalWrite(POWER_UP_PIN, HIGH);
+        digitalWrite(POWER_UP_PINS, HIGH);
         mm = 0;
         ss = 0;
         break;
@@ -259,6 +257,7 @@ void statusProcess() {
     case WAIT_FOR_TRANSMIT : {
       if (mm >= TRANSMIT_TIME) {
         digitalWrite(POWER_UP_PIN, LOW);
+        digitalWrite(POWER_UP_PINS, LOW);
         main_state = WAITING_MSG;
         mm = 0;
         ss = 0;
@@ -274,7 +273,7 @@ void statusProcess() {
 }
 
 void serialInit() {
-  //Serial.begin(9600);
+  Serial.begin(9600);
   switch (Serial_MODE) {
     case 0 : {
       Serial1.begin(9600);
@@ -350,15 +349,16 @@ void serialWorks() { //Serial recieving and sending messages
 
 void setup() {
  Serial.begin(9600);  
- if (EEPROM.read(EEPROM_CHECK) != 0) {
-   EEPROMreadconf();
+ if (EEPROM.read(EEPROM_CHECK) == 1) {
+  EEPROMreadconf();
  }
  serialInit();  
  serverInit();
  pinMode(POWER_UP_PIN , OUTPUT);
+ pinMode(POWER_UP_PINS , OUTPUT);
  ADCSRA = 0;
- MsTimer2::set(1000, TimeProcess);
- MsTimer2::start();
+ FlexiTimer2::set(1000, TimeProcess);
+ FlexiTimer2::start();
  Serial.println("Ready...");
 }
 
